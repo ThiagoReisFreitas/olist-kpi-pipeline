@@ -1,7 +1,7 @@
 # Olist KPI Pipeline
 
 Pipeline ELT de KPIs logísticos construído sobre o dataset público da Olist (Kaggle).  
-Dados brutos em CSV → PostgreSQL → KPIs calculados em SQL → Dashboard interativo em Streamlit.
+Dados brutos em CSV → PostgreSQL → KPIs calculados em SQL → Dashboard Streamlit.
 
 ---
 
@@ -20,9 +20,9 @@ Dados brutos em CSV → PostgreSQL → KPIs calculados em SQL → Dashboard inte
 
 ## O que o projeto faz
 
-A Olist é um marketplace brasileiro. O dataset público deles contém ~100 mil pedidos com informações de entrega, pagamento, avaliações e produtos.
+A Olist é um marketplace brasileiro. O dataset público deles tem ~100 mil pedidos com informações de entrega, pagamento, avaliações e produtos.
 
-Este projeto responde perguntas logísticas reais usando esse dataset:
+O projeto usa esse dataset pra responder perguntas logísticas:
 
 - Qual estado tem a maior taxa de entrega no prazo?
 - Onde o frete come mais do valor do produto?
@@ -38,7 +38,7 @@ data/*.csv
      │
      │  1. Ingestão (ingestion/load_raw.py)
      │     Lê cada CSV com pandas e insere no PostgreSQL
-     │     sem nenhuma alteração — espelho fiel da fonte.
+     │     sem alterações — cópia direta da fonte.
      ▼
 raw.orders
 raw.customers          ← schema "raw" no PostgreSQL
@@ -51,8 +51,8 @@ raw.geolocation
 raw.product_category_name_translation
      │
      │  2. Transformação (transformation/compute_kpi.py)
-     │     Executa os SQLs de negócio e salva os resultados
-     │     no schema analytics — nunca altera o raw.
+     │     Executa os SQLs de KPI e salva no schema analytics.
+     │     O schema raw nunca é alterado.
      ▼
 analytics.otd                    ← On-Time Delivery por estado
 analytics.lead_time              ← Tempo médio compra→entrega
@@ -64,55 +64,65 @@ analytics.categorias             ← Top 20 categorias por receita
 analytics.pagamentos             ← Distribuição e comportamento por meio de pagamento
      │
      │  3. Dashboard (dashboard/app.py)
-     │     Streamlit lê direto do schema analytics e
-     │     renderiza gráficos interativos com Plotly.
+     │     Streamlit lê do schema analytics e
+     │     renderiza os gráficos com Plotly.
      ▼
 http://localhost:8501
 ```
 
 **Por que ELT e não ETL?**  
-Os dados são transformados *depois* de estarem no banco (ELT), não antes. Isso significa que o `raw` preserva a fonte original — se uma regra de negócio mudar, basta reescrever o SQL e rodar a transformação de novo sem precisar reingerir os CSVs.
+Os dados são transformados depois de estarem no banco. O schema `raw` preserva a fonte original — se uma regra de negócio mudar, basta reescrever o SQL e rodar a transformação de novo, sem reingerir os CSVs.
 
 ---
 
 ## KPIs calculados
 
 ### On-Time Delivery (OTD)
+
 Percentual de pedidos entregues até ou antes da data estimada, agrupado por estado.  
 Campos: `total_pedidos`, `pedidos_no_prazo`, `pedidos_atrasados`, `otd_pct`, `atraso_medio_dias`, `pior_atraso_dias`.
 
 ### Lead Time de Entrega
+
 Tempo total da compra até a entrega ao cliente, decomposto em três etapas:
+
 - **Aprovação** — compra → aprovação do pagamento (horas)
 - **Despacho** — aprovação → entregue ao transportador (dias)
 - **Trânsito** — transportador → cliente (dias)
 
-A coluna `pct_tempo_despacho` identifica qual etapa é o gargalo de cada estado.
+A coluna `pct_tempo_despacho` aponta qual etapa é o gargalo de cada estado.
 
 ### Perfect Order Rate
-Pedido "perfeito" = entregue no prazo **e** avaliação ≥ 4 estrelas. Combina eficiência logística com satisfação do cliente em um único indicador.
+
+Pedido perfeito = entregue no prazo **e** avaliação ≥ 4 estrelas. Combina eficiência logística com satisfação do cliente num único número.
 
 ### Custo de Frete
-Frete médio, frete mediano e proporção frete/preço do produto por estado. A proporção expõe onde o custo logístico compromete mais a experiência de compra.
+
+Frete médio, frete mediano e proporção frete/preço do produto por estado. A proporção mostra onde o custo logístico compromete mais a experiência de compra.
 
 ### Atraso × Satisfação
+
 Nota média de avaliação agrupada por faixa de atraso:
+
 - No prazo
 - Atraso leve (1–3 dias)
 - Atraso moderado (4–7 dias)
 - Atraso grave (8+ dias)
 
-Quantifica em números o impacto de cada dia de atraso na percepção do cliente.
+Traduz em números o impacto de cada dia de atraso na percepção do cliente.
 
 ### Tendência Temporal
-Volume de pedidos e receita agrupados por mês (jan/2017 a ago/2018). Permite identificar sazonalidade e crescimento do marketplace ao longo do tempo.  
+
+Volume de pedidos e receita agrupados por mês (jan/2017 a ago/2018). Útil pra identificar sazonalidade e crescimento do marketplace.  
 Campos: `mes`, `total_pedidos`, `receita_total`, `ticket_medio`.
 
 ### Categorias de Produto
+
 Top 20 categorias por receita em pedidos entregues. Inclui ticket médio e proporção do frete sobre o valor do produto por categoria.  
 Campos: `categoria`, `total_pedidos`, `receita_total`, `ticket_medio`, `proporcao_frete_pct`.
 
 ### Meios de Pagamento
+
 Distribuição de transações por método de pagamento (cartão de crédito, boleto, voucher, débito). Inclui parcelamento médio e proporção de pedidos parcelados.  
 Campos: `tipo_pagamento`, `total_transacoes`, `ticket_medio`, `parcelas_medias`, `pct_parcelado`.
 
@@ -262,7 +272,7 @@ python run_pipeline.py
 O script roda duas etapas em sequência:
 
 1. **Ingestão** — lê todos os CSVs da pasta `data/` e carrega no schema `raw`. Cada arquivo vira uma tabela com o mesmo nome sem os prefixos `olist_` e `_dataset`.
-2. **Transformação** — executa os 5 SQLs de KPI e salva os resultados no schema `analytics`.
+2. **Transformação** — executa os 8 SQLs de KPI e salva os resultados no schema `analytics`.
 
 Saída esperada:
 
@@ -270,22 +280,16 @@ Saída esperada:
 ==================================================
    OLIST KPI PIPELINE
 ==================================================
-
 [1/2] Ingestão — carregando CSVs no schema raw...
-
 === 9 arquivo(s) encontrado(s) ===
-
   Lendo olist_customers_dataset.csv...
   Inserindo 99.441 linhas em raw.customers...
   ✅ raw.customers carregada.
   ...
-
 [2/2] Transformação — calculando KPIs no schema analytics...
-
   Calculando analytics.otd...
   ✅ analytics.otd — 27 linhas salvas.
   ...
-
 ==================================================
    Pipeline concluído em 42.3s
    Execute: streamlit run dashboard/app.py
@@ -316,7 +320,7 @@ Acesse `http://localhost:8501` no navegador. O dashboard tem 9 páginas navegáv
 
 ## Testes
 
-Os testes cobrem a lógica pura do pipeline — sem precisar de banco de dados ou Streamlit rodando.
+Os testes cobrem a lógica pura do pipeline, sem precisar de banco de dados ou Streamlit rodando.
 
 ```bash
 pytest tests/ -v
