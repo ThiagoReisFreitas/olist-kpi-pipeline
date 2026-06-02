@@ -14,6 +14,9 @@ KPI_JOBS = {
     "perfect_order.sql":         "perfect_order",
     "freight_cost.sql":          "freight_cost",
     "delay_vs_satisfaction.sql": "delay_vs_satisfaction",
+    "volume_temporal.sql":       "volume_temporal",
+    "categorias.sql":            "categorias",
+    "pagamentos.sql":            "pagamentos",
 }
 
 
